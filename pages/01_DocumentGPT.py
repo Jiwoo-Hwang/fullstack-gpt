@@ -7,6 +7,8 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores.faiss import FAISS
 from langchain.chat_models import ChatOpenAI
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain.memory import ConversationBufferMemory
+from langchain.schema.runnable import RunnableWithMessageHistory
 import streamlit as st
 
 st.set_page_config(
@@ -28,6 +30,13 @@ class ChatCallbackHandler(BaseCallbackHandler):
         self.message += token
         self.message_box.markdown(self.message)
 
+if "memory" not in st.session_state:
+    st.session_state["memory"] = ConversationBufferMemory(
+        k=4,
+        return_messages=True
+    )
+
+memory = st.session_state["memory"]
 
 llm = ChatOpenAI(
     temperature=0.1,
@@ -93,6 +102,7 @@ prompt = ChatPromptTemplate.from_messages(
             Context: {context}
             """,
         ),
+        ("placeholder", "{history}"),
         ("human", "{question}"),
     ]
 )
@@ -131,8 +141,16 @@ if file:
             | prompt
             | llm
         )
+
+        chain_with_memory = RunnableWithMessageHistory(
+            chain,
+            lambda session_id: st.session_state["memory"],
+            input_messages_key="question",
+            history_messages_key="history"
+        )
+
         with st.chat_message("ai"):
-            response = chain.invoke(message)
+            chain_with_memory.invoke(message, config={"configurable": {"session_id": "default"}})
 
 
 else:
