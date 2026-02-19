@@ -2,3 +2,5 @@ env/
 .env
 .cache/
 .streamlit
+.DS_Store
+falcon.bin
